@@ -1,0 +1,398 @@
+---
+title: "Inequality and Emissions: An analysis"
+author: "Chait Sayani"
+navlink: "[Sayani](http://NAVLINK/)"
+og:
+  type: "article"
+  title: "opengraph title"
+  url: "optional opengraph url"
+  image: "optional opengraph image link"
+date: "`r Sys.Date()`"
+output: markdowntemplates::skeleton
+---
+```{r, message=FALSE, echo=FALSE}
+library(tidyverse)
+library(plm)
+library(readr)
+library(grid)
+library(gridBase)
+library(gridExtra)
+library(stargazer)
+library(sandwich)
+library(lmtest)
+library(car)
+library(formattable)
+library(kableExtra)
+```
+## I. Abstract
+This paper examines the relationship between per capita CO2 emissions in metric tonnes (t) and economic inequality across various countries. The research question is grounded in a hypothesized relationship between characteristics of households in countries with traditionally high income inequality and their impact on emissions at the household level. We find a statistically significant negative relationship between the logarithm of per capita emissions and the logarithm of a countries Gini coefficient, implying that higher economic inequality is associated with lower levels of emissions. This effect is most prevalent within countries that are High Emissions, and dubiously present amongst low and middle emissions countries.
+
+## II. Research Question and Hypotheses  
+This paper seeks to establish the presence of a statistically significant correlation coefficient between per capita CO2 emissions (in metric tonnes) and economic inequality as measured by the Gini coefficient. In other words, this paper aims to answer the question: “Do higher levels of economic inequality drive per capita CO2 emissions in either direction?” Our null hypothesis posits that there is no relationship between the logarithm values of the Gini Index and the logarithm values of the CO2 emissions per capita. The alternative hypothesis asserts that there is a relationship between the logarithm values of the Gini Index and the logarithm values of the mean CO2 emissions per capita. When modeling a linear relationship between these two variables, some form of a linear model will be constructed, and the value of coefficient associated with our independent variable of inequality will be tested. If enough evidence to conclude that the coefficient value representing elasticity is not zero is found, then the null hypothesis can be rejected and enough evidence has been found to conclude that an elasticity relationship exists between emissions and economic inequality.  
+
+## III. Theory
+Economic theory and intuition drawn from various sources guided the hypotheses for this paper. Galasso (n.d.) posits Horizontal Inequalities, Geography, Technology, Globalization, and Political turmoil are some of the many factors that create economic inequality. These factors may create many hypothetical effects that could drive the relationship between economic inequality and CO2 emissions. Intuition suggests that countries with high inequality and a large proportion of impoverished citizens would lack the means to afford renewable or low emission sources of energy. In addition, a lack of infrastructure exacerbated by the consolidation of wealth into the upper classes of society and political turmoil could also make the deployment and availability of renewable resources far less feasible, thus driving up CO2 emissions. Furthermore, while this might not explain a causal relationship, the geographical driver of inequality also might offer insight into a demonstrated relationship between emissions and Inequality. Galasso writes, “Geography is arguably the most important determinant of inequality...the country to which you are born, or migrate...may be characterized by differences in productivity levels, allocation of government resources, and sheer distances to markets...differences in natural resource endowments between regions can worsen inequalities (Galasso).” High inequality countries could tend to specialize in more resource intensive industries, which gives the countries with a natural endowment an advantage in industry, driving a higher level of CO2 Emissions. Thus at a minimum, there seems to be at least two economic reasons that suggest some relationship between inequality and per capita CO2 emissions.  
+
+## IV. Previous Work  
+A large body of previous economic work examines the relationship between economic inequality and CO2 emissions across countries. Grunewald et al. finds a “U-shaped relationship between income inequality and carbon dioxide emissions per capita” (this brings up the possibility of a model misspecification error, which shall be discussed later). Their methodology was very similar to this papers, utilizing various econometric tests over a panel data set containing country level data about inequality and emissions (albeit constructing far more complicated non-linear models). While their questions and findings are slightly more nuanced than the research question of this paper, they find that pro-poor growth movements and reduced per capita emissions are positively correlated. Ravillion, Heil, and Jalan answer a similar question but come to completely opposing results. They determine that higher inequality is associated with lower carbon emissions at given incomes. Their reasoning stems from the argument that emissions are reflective of high levels of economic growth which ameliorates inequality. One possible mediation of the two conclusions seem to be that the Grunewald analysis more specifically applies to countries on the extreme ends of inequality (specifically high inequality countries), whereas Ravillion, Heil and Jalan's findings appear to be the more accurate model when the analysis is focused on the middle section of the data. This is one possible reconciliation of their findings, but this mediation is outside of the scope of this paper. In any case, a those are two examples and findings of previous research done on this topic.  
+
+## V. Data Description and Visualization  
+### i. Summary Statistics and Subgroups
+The data set used for this project is a panel data set that tracks a country's name, Gini coefficient values, and mean per capita CO2 emissions over the years 1970 - 2014. The data is collected across 167 countries, and the per capita CO2 emissions are measured in metric tonnes. There are a total of 2,193 entries after all unavailable data points were removed, which yielded a relatively large data set to work with. Figure 1 illustrates the summary statistics of the entire data set. Across all countries, the mean gini index was 38.011, and the mean amount of per capita CO2 emissions was 6.165 metric tonnes. On average, the Gini Index varied 9.112 from the mean, and the amount of CO2 emissions varied 5.734 metric tonnes from the mean.  
+```{r Create Data Set, echo=FALSE, message=FALSE, warning=FALSE}
+gini <- read_csv("gini.csv")
+emdata <- read_csv("emdata.csv")
+
+gini.longer <- gini %>% 
+  gather(year, gini, -country)
+
+
+emdata.longer <- emdata %>% 
+  gather(year, emissions, -country)
+
+dftest <- full_join(gini.longer, emdata.longer, by = c('country','year'))
+#dftest2 <- full_join(dftest,fam.longer, by = c('country','year'))
+
+dftest2 <- full_join(gini.longer,emdata.longer, by = c('country','year'))
+df.omit <- drop_na(dftest2)
+```
+```{r create summary stats, echo=FALSE, message=FALSE,warning=FALSE}
+title.col <- c("Statistic", "N", "Mean", "St.Dev", "Min", "Pctl(25)", "Pctl(75)", "Max")
+gini.col <- c("Gini",16844,39.415,9.758,16.000,32.500,44.900,77.000)
+em.col <- c("Emissions",16844,3.335,6.642,0.0001,0.197,4.090,253.000)
+
+sum.tbl <- rbind(gini.col, em.col)
+colnames(sum.tbl) <- title.col
+rownames(sum.tbl) <- c("Gini", "Emissions")
+```
+<center>**Figure 1: Data Summary Statistics**</center>  
+<center>
+```{r test,echo=FALSE, message=FALSE, warning=FALSE}
+formattable(data.frame(sum.tbl))
+```
+</center>
+From the summary, a few intuitively distinct subgroups were examined and summarized. Four specific groups were isolated, either based on their elevated levels of CO2 emissions, or high Gini coefficient values. The first two groups were the leading 4-5 countries in CO2 emissions per capita and Gini coefficient values respectively. The list of these countries was obtained from online resources to get the most up to date information (post-dating our data set). These four leading countries in CO2 emissions were the United States, Russia, India, and Japan. This group of 4 was labeled as the “High Emissions Group”. The five leading countries in economic inequality were Ukraine, Slovenia, Norway, the Slovak Republic, and the Czech Republic. This group was likewise termed the “High Inequality Group”. Two more groups were created on the exact same distinguishing factors, except their rankings were formulated from the data set itself as opposed looking up aggregated statistics online. These two groups were termed  the “High Emissions Group from the Data” and the “High Inequality Group from Data” respectively. The members of the first group include Belize, Brazil, Botswana, Haiti, Honduras, Namibia, Panama, South Africa, Suriname, Swaziland (Fig 3). The members of the second group include Australia, Bahrain, Brunei, Canada, Kuwait, Luxembourg, Qatar, Saudia Arabia, United States, and Trinidad and Tobago (Fig 3). The econometric tests were not only run on the entire data set, but also across these various subgroups as well to examine any differences of note. Across all these groups, the relationship and influence of high economic inequality on per capita CO2 emissions will be examined.  
+```{r construct subgroup table, echo = FALSE, message=FALSE, warning=FALSE}
+high.em.list <- c('United States','Russia', 'India', 'Japan')
+high.gini <- c('Ukraine', 'Slovenia', 'Norway', 'Slovak Republic', 'Czech Republic')
+
+list.table <- cbind(high.em.list, high.gini)
+list.table <- data.frame(list.table)
+
+colnames(list.table) <- c('High Emissions Group', 'High Inequality Group')
+```
+<center>**Figure 2: Subgroups of interest**</center>  
+
+<center>
+```{r display countries list, echo=FALSE, message=FALSE}
+formattable(list.table)
+```
+</center>
+<br>
+<center>**Figure 3: Top Emissions and Inequality countries from Data**</center>
+```{r group bar graphs, fig.align = "center", echo=FALSE,message=FALSE}
+#top 10 emitters
+top.em.countries.graph <- df.omit %>% 
+  group_by(country) %>% 
+  summarize(Mean.em = mean(emissions)) %>% 
+  arrange(desc(Mean.em)) %>% 
+  slice(1:10) %>% 
+  ggplot(aes(x = country, y = Mean.em)) +
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  ggtitle('Highest perCapita Emission Countries (from Data)') +
+  xlab('Country') +
+  ylab('Mean Emissions (t)')
+
+top.ineq.countries.graph <- df.omit %>% 
+  group_by(country) %>% 
+  summarize(mean.gini = mean(gini)) %>% 
+  arrange(desc(mean.gini)) %>% 
+  slice(1:10) %>% 
+  ggplot(aes(x = country, y = mean.gini)) +
+  geom_bar(stat = 'identity', fill = 'steelblue') +
+  ggtitle("Most Unequal Countries (from Data)") +
+  xlab("Countries") +
+  ylab("Mean Gini")
+
+grid.arrange(top.em.countries.graph, top.ineq.countries.graph)
+```
+
+```{r Create dfs for subgroups,echo=FALSE,message=FALSE,warning=FALSE}
+df.HighEmGroup <- df.omit %>% 
+  filter(country %in% high.em.list)
+
+df.HighIneqGroup <- df.omit %>% 
+  filter(country %in% high.gini)
+
+df.Data.highEm <- df.omit %>% 
+  filter(country %in% c('Belize', 'Brazil', 'Botswana', 'Haiti', 'Honduras', 'Namibia', 'Panama', 'South Africa', 'Suriname', 'Swaziland'))
+
+df.Data.highIneq <- df.omit %>% 
+  filter(country %in% c('Australia', 'Bahrain', 'Brunei', 'Canada', 'Kuwait', 'Luxembourg', 'Qatar', 'Saudia Arabia', 'United States', 'Trinidad and Tobago'))
+```
+<br>
+<center>**Figure 4: Subgroup Summary Statistics**</center>  
+<center>
+```{r, results="asis",fig.align="center",echo=FALSE}
+#stargazer(data.frame(df.HighEmGroup), data.frame(df.HighIneqGroup), data.frame(df.Data.highEm), data.frame(df.Data.highIneq), type = "html")
+stargazer(data.frame(df.HighEmGroup), type = "html", title = "High Emissions Group")
+stargazer(data.frame(df.HighIneqGroup), type = "html", title = "High Inequality Group")
+stargazer(data.frame(df.Data.highEm), type = "html", title = "High Emissions Group (from Data)")
+
+stargazer(data.frame(df.Data.highIneq), type = "html", title = "High Inequality Group (from Data)")
+```
+</center>
+###Group Trends over time
+Examining the general trends amongst our groups of interest, one can see that there is a consistent upward trend in emissions amongst all the high inequality country groups until approximately around the years 1981-1983 (perhaps indicative of the mass wave of global environmental activism and legislation passed in that time due to the prevalence of acid rain and food crises). After that point in time, emissions in all countries have an overall downward trend until 2014, with minor fluctuations along the way (Figure 5). The Gini Index for these countries also follows a very similar trend, except one can see a big spike in inequality across all countries around the same time CO2 emissions start decreasing. Perhaps this supports Ravillion, Heil, and Jalan's hypothesis that emissions and the gini index are negatively related, however later sections will address this question in more detail.  
+The High emissions countries follow a different pattern of development. While a drop in emissions is observed across these countries around the 1980's, the level of per capita emissions and gini index both rise around the 1990's continuing all the way to 2014. This is in stark contrast to the downward trend exhibited by the High inequality countries, which also seems to imply that there is indeed a difference in behavior and interaction between per capita emissions and inequality between the two groups.
+```{r create graphs, message=FALSE,echo=FALSE, warning=FALSE}
+#High emissions group emsissions over time
+HEG.Em.time <- df.omit %>% 
+  filter(country %in% c('China','United States','Russia', 'India', 'Japan')) %>% 
+  ggplot(aes(x = year, y = emissions, group = country)) +
+  scale_x_discrete(breaks = seq(1970, 2015, 5)) +
+  geom_line(aes(color = country)) +
+  ggtitle('PerCapita CO2 Emissions over Time (High Emissions group)') +
+  xlab('Year') +
+  ylab('PerCapita CO2 Emissions (in Metric Tonnes)') +
+  labs(color = "Country")
+
+#HEG ineq over time
+HEG.In.time <- df.omit %>% 
+  filter(country %in% c('China','United States','Russia', 'India', 'Japan')) %>% 
+  ggplot(aes(x = year, y = gini, group = country)) +
+  scale_x_discrete(breaks = seq(1970, 2015, 5)) +
+  geom_line(aes(color = country)) +
+  ggtitle('GINI Index over Time (High Emissions Group)') +
+  xlab('Year') +
+  ylab('GINI Index') +
+  labs(color = "Country")
+
+#HIG Ineq over time
+HIG.In.time <- df.omit %>% 
+  filter(country %in% c('Ukraine', 'Slovenia', 'Norway', 'Slovak Republic', 'Czech Republic')) %>% 
+  ggplot(aes(x = year, y = gini, group = country)) +
+  scale_x_discrete(breaks = seq(1970, 2015, 5)) +
+  geom_line(aes(color = country)) +
+  ggtitle("GINI Index over Time (High Inequality Group)") +
+  xlab("Year") +
+  ylab("GINI Index") +
+  labs(color = "Country")
+
+#HIG Emissions over time
+HIG.em.time <- df.omit %>% 
+  filter(country %in% c('Ukraine', 'Slovenia', 'Norway', 'Slovak Republic', 'Czech Republic')) %>% 
+  ggplot(aes(x = year, y = emissions, group = country)) +
+  scale_x_discrete(breaks = seq(1970, 2015, 5)) +
+  geom_line(aes(color = country)) +
+  ggtitle("PerCapita CO2 Emissions over Time (High Inequality Group)") +
+  xlab("Year") +
+  ylab("PerCapita CO2 Emissions (in Metric Tonnes)") +
+  labs(color = "Country")
+```
+<center>**Figure 5: Group Trends over time**</center>
+```{r display graph trends over time,fig.align="center",echo=FALSE, message=FALSE}
+grid.arrange(HIG.In.time,HIG.em.time)
+grid.arrange(HEG.Em.time,HEG.In.time)
+```
+<br>
+
+## VI. Model and Results
+### i. Aggregated
+To construct the model, the first step was graphing and comparing the different functional forms of the linear relationship between per capita CO2 emissions and the GINI index, and then selecting the best candidate. The log-linear form was determined to be the best fit for both the research question and the data (Fig 6), and as such, all the calculations were run with the logarithms of both of the variables being utilized.  
+
+<center>**Figure 6: Comparing Functional Forms**</center>
+```{r construct graphs of functional forms,fig.align="center",echo=FALSE}
+df.omit <- df.omit %>% 
+  mutate(logEm = log(emissions),
+         logGini = log(gini))
+
+untransf <- df.omit %>% 
+  ggplot(aes(x = gini, y = emissions, group = country)) +
+  geom_point(size = 0.01) +
+  ggtitle('Untransformed') +
+  xlab("Gini Coefficient") +
+  ylab("PerCap Emissions (t)")
+
+em.log.graph <- df.omit %>% 
+  ggplot(aes(x = log(gini), y = emissions, group = country)) +
+  geom_point(size = 0.01) +
+  ggtitle('Emissions logged') +
+  xlab("Gini Coefficient") +
+  ylab("PerCap Emissions (t)")
+
+gini.log.graph <- df.omit %>% 
+  ggplot(aes(x = gini, y = log(emissions), group = country)) +
+  geom_point(size = 0.01) +
+  ggtitle('Gini logged') +
+  xlab("Gini Coefficient") +
+  ylab("PerCap Emissions (t)")
+
+both.logged.graph <- df.omit %>% 
+  ggplot(aes(x = log(gini), y = log(emissions), group = country)) +
+  geom_point(size = 0.01) +
+  ggtitle('Both logged') +
+  xlab("Gini Coefficient") +
+  ylab("PerCap Emissions (t)")
+
+grid.arrange(untransf, em.log.graph, gini.log.graph, both.logged.graph, nrow = 2)
+```
+After this comparision, an econometric model to test the relationship was then determined. Since the data set used is in a panel format, the pooled, fixed effects, and random effects model were all considered. The pooled model yielded a poor r-squared value and also ignored the panel nature of the data and was thus immediately discarded (Fig. 7). Then, the hausman test was conducted to determine if the fixed effect or random effects model was a better fit (results shown in (Fig. 10). The test yielded a chi-squared value of 12.692 and a p-value of 0.0003672,  which allowed the rejection of the null hypothesis and led us to conclude that the fixed effects model was more appropriate. Even though the fixed effects model was determined to be the best, other pooled and random effects models were still utilized, and a comparison of these models will be discussed in the next section.
+<center>**Figure 7: Pooled Model**</center>
+<center>
+```{r pooled model,results="asis",echo=FALSE, message=FALSE, results="asis"}
+pooled = plm(logEm ~ logGini,
+             data = df.omit,
+             model = "pooling",
+             index = c("country","year")) 
+stargazer(pooled, type = 'html')
+```
+</center>
+<br>
+<center>**Figure 8: Fixed Effects Model**</center>
+<center>
+```{r fixed effects, echo=FALSE, results="asis"}
+within = plm(logEm ~ logGini,
+             data = df.omit,
+             model = "within",
+             index = c("country","year")) 
+
+stargazer(within, type = 'html')
+
+linearHypothesis(within, "logGini = 0", vcov. = vcovHC(within, type = "HC1"))
+```
+</center>
+<br>
+<center>**Figure 9: Random Effects Model**</center>
+<center>
+```{r random effects, echo=FALSE, results = "asis"}
+random = plm(logEm ~ logGini,
+             data = df.omit,
+             model = "random",
+             index = c("country","year")) 
+
+stargazer(random, type = 'html')
+```
+</center>
+<br>
+<center>**Figure 10: Hausman Test**</center>
+<center>
+```{r hausman, echo=FALSE}
+phtest(within, random)
+```
+</center>
+<br>
+<center>**Figure 11: True r-squared**</center>
+<center>
+```{r true r-squared, results = "asis", echo = FALSE}
+within.2 = lm(logEm ~ logGini+ factor(country),
+               data = df.omit)
+```
+```{r test 2 again, results = "hide", echo=FALSE, message=FALSE}
+stargazer(within.2, type = "html")
+```
+```{r}
+print("r^2  = 0.480 from lm(logEm ~ logGini + factor(Country)")
+```
+</center>
+<br>
+<center>**Figure 11.5: Hypothesis Test**</center>
+<center>
+```{r linH, results = "asis", echo = FALSE}
+stargazer(random, type = "html", style = "aer")
+linearHypothesis(within, "logGini = 0")
+```
+</center>
+The output of the fixed effects model is shown in (Fig. 8). The elasticity coefficient was found to be -3.570, which indicates that for a one unit increase in the logarithm of perCapita CO2 emissions yields a -3.570 unit decrease in the logarithm of our Gini coefficient. This can be extrapolated to conclude that a one percent increase in per capita CO2 emissions yields a 3.57 percent decrease in our inequality as measured by the Gini Coefficient. The uncorrected standard error was found to be 0.088, and the (corrected) standard error of the coefficient is 0.54104. This correction was because the presence of heteroskedasticity was detected, and robust standard errors were then calculated. This correction will be discussed in the following Robustness section of the paper. The one consideration about the model which gives pause is the relatively low true r-squared value (Fig. 11) is 0.48, which means that when adjusting from the demeaned values, 48 percent of the variation in emissions is explained by inequality. This perhaps could stem from the model misspecification error as discussed in section 2, since the estimated relationships between these two variables in the economic canon is not linear. However, the methods that are within the scope of the author and the paper involve estimating transformed linear relationships between the variables. Despite this setback, however, we can still run the model across all four of our previously identified subgroups and still compare this model to the results yielded by the pooled and random effects model.
+
+To test if this coefficient was truly accurate and statistically significant, an F-Test was conducted (Fig. 8). A chi-squared statistic of 1659 was obtained with a p-value of 2.2e-16 (Fig. 11.5). This means that we can reject the null hypothesis and conclude that the correlation coefficient between the logarithm of emissions and the logarithm of inequality is not zero, implying that there is a relationship between the two. Even after correcting for heteroskedacity and obtaining our new correct standard errors, the p-value of the F-test was still 4.145e-11, leading us to the same conclusion. 
+### ii. Trends amongst groups
+The High Emissions group (not from the data) yielded a coefficient of -6.179
+, and a standard error of 0.369 (Fig 12). This suggests a stronger correlation on this subsection when compared to the model for the entire data set. The other three groups fared similarly in terms of explanatory power.  The model run on the high inequality group had a coefficient of -4.758, and a standard error of 0.355. The high emissions group extracted from the data set had a coefficient of -4.099, and a standard error of 0.253. It seems that this value indicates that our relationship and model holds more power for countries that have high emissions. Finally the high inequality countries obtained from the data had a coefficient of -8.018 and a standard error of 0.587, which supports the existence of a relationship between our two variables. Thus, when analyzing the various subgroups, as a whole, we can say that our subgroup findings are consistent with the overall data set findings. However, when examining the differences in coefficients across subgroups, it seems that in countries that tend to already have high emissions, the inverse relationship demonstrated appears to be stronger.  
+
+```{r creating group dfs again, echo=FALSE, message = FALSE}
+df.HighEmGroup <- df.omit %>% 
+  filter(country %in% high.em.list)
+
+df.HighIneqGroup <- df.omit %>% 
+  filter(country %in% high.gini)
+
+df.Data.highEm <- df.omit %>% 
+  filter(country %in% c('Belize', 'Brazil', 'Botswana', 'Haiti', 'Honduras', 'Namibia', 'Panama', 'South Africa', 'Suriname', 'Swaziland'))
+
+df.Data.highIneq <- df.omit %>% 
+  filter(country %in% c('Australia', 'Bahrain', 'Brunei', 'Canada', 'Kuwait', 'Luxembourg', 'Qatar', 'Saudia Arabia', 'United States', 'Trinidad and Tobago'))
+```
+
+<center>**Figure 12: Group Regressions**</center>
+```{r, results="asis", echo = FALSE}
+random.highEmGroup = plm(logEm ~ logGini,
+             data = df.HighEmGroup,
+             model = "random",
+             index = c("country","year")) 
+
+random.highIneqGroup = plm(logEm ~ logGini,
+             data = df.HighIneqGroup,
+             model = "random",
+             index = c("country","year")) 
+
+random.Data.highEm = plm(logEm ~ logGini,
+             data = df.Data.highEm,
+             model = "random",
+             index = c("country","year")) 
+
+random.Data.highIneq = plm(logEm ~ logGini,
+             data = df.Data.highIneq,
+             model = "random",
+             index = c("country","year")) 
+
+stargazer(random.highEmGroup,random.highIneqGroup,random.Data.highEm,random.Data.highIneq, column.labels = c("High.Emissions.Group", "High.Inequality.Group", "High.Emissions.Group(Data)","High.Inequality.Group(Data)"), type = "text")
+```
+
+## VII. Robustness
+### i. Correcting for Heteroskedacity and Autocorrelation
+After the correct model was determined, the presence of heteroskedasticity and autocorrelation were then tested to determine the appropriate method of correction. The breush-pagan test was conducted on the fixed effects model, and yielded a statistic of 7.3984 with a p-value of 0.006528 (Fig 13). This implies the existence of heteroskedasticity and thus the standard errors were corrected using the White method for calculating robust standard errors. To test for autocorrelation, the Durbin-Watson test was implemented, which yielded a p-value of 0.05794 and a statistic of 1.9758 (Fig. 14). This does not give enough evidence to conclude that positive autocorrelation exists, and furthermore since the DW statistic is very close to 2, we can assume that very little autocorrelation exists amongst the model.
+
+<center>**Figure 13: bp test**</center>
+```{r bptest, echo=FALSE, message=FALSE}
+bptest(within)
+```
+<center>**Figure 14: Autocorrelation Test**</center>
+```{r}
+dwtest(within, order.by = df.omit$logEm)
+```
+
+While the analysis in the model section included the corrected robust standard errors, the process of the actual correction will be discussed here. Autocorrelation amongst the residuals was not detected, but the prescence of heterskedasticity was corrected for by calculating whites robust standard errors. The output (Fig. 15) shows that the new robust standard error is 0.54104, and that was the standard error used in the linear hypothesis test and coefficient test discussed above. We can now say that our aforementioned results are robust because the issue of heteroskedasticity was corrected for. The whites robust standard errors and correct p-values were accounted for, and thus we can conclude the alternative that there is a relationship between Economic inequality and per capita CO2 emissions.
+
+<center>**Figure 15: Robust Standard Errors**</center>
+```{r robust Se, echo=FALSE, message=FALSE}
+coeftest(within, vcov = vcovHC(within, type = "HC1"))
+```
+
+### ii. Comparing Models
+Even though the fixed effects model proved to be the best fit for the data, both the pooled and random effects model were implemented for comparison. The coefficients for the two tests were respectively -1.756 and -3.948. The respective standard errors were 0.064 and 0.086, and the respective r-squared values are 0.043 and 0.089 (Fig. 16). We can also thusly conclude that our fixed effects model was the best fit for the data (in terms of a linear model). This makes sense since the pooled model essentially ignores the panel format of the data set and should have explanatory power. Furthermore, since countries have different inital "endowments" of emissions (reflected in their intercept), allowing for variable intercepts explicitly in the fixed effect model makes it preferable to the random effects model, and this intution was confirmed by the results of the Hausman test.
+
+<center>**Fig 16: Comparing Functional Forms**</center>
+<center>
+```{r comp, results = "asis", echo = FALSE}
+stargazer(within,pooled,random,type = "html", title = "Comparing Functional Forms",
+          column.labels = c("Fixed","Pooled","Random"))
+```
+</center>
+## VIII. Limitations
+The main limitation in this work is the use of a panel linear model when estimating a relationship that might not necessarily be strictly linear. As demonstrated above, our model tends to work extremely well on the more upper extremes of countries with emissions, and this difference in effectiveness across groups indicates a non-constant marginal effect of emissions on inequality. This also explains the low r-squared value of our model. This is an example of a problem that could not be corrected for within the confines of my knowledge of R and econometrics. Another avenue for possible exploration is including more confounding variables and controlling for them to estimate a more accurate marginal effect of our CO2 emissions. The two considerations that prevented this aspect form being utilized in this paper was the lack of space and data to account and control for every single possible confounding factor that influence economic inequality, adn as such I selected the independent variable of the most interest to me (as well as one with sufficient data to test our claim). Finally, a third source of error in the model would be the lack of data. Since all of the NA entries were removed from the data set, some countries have data for more years compared to others. This means that within the fixed effects models, certain groups had a more accurate estimation of the coefficient as opposed to others, and this definitely influences the overall results. This is a difficult problem that might not necessarily be able to be fixed since it would require collecting data that might not be tracked. However, through additional study and investigation, the first two limitations may be able to be mitigated in following work. In the future, exploring more variables and non-linear relationships would go a long way in improving the robustness of the model.
+
+## IX. Conclusions
+Thus, in conclusion, we have found a statistically significant relationship between the logarithm of CO2 emissions per capita and the logarithm of economic inequality as measured by the Gini coefficient. Some issues with model fit and explanatory power arose, however this was mitigated to the best of my ability. This model posits a negative relationship between per capita emissions and economic inequality, howver this effect seems to be more concentrated amongst high emission countries that were examined (supporting Ravillion, Heil, and Jalan's hypothesis). 4 different panel linear models were examined, and the fixed effects model was deemed to be the best. While there were indeed some limitations in regards to the fit of the model, the tests conducted above demonstrated the negative relationship, which leads this paper to conclude that for a one unit increase in the logarithm of CO2 emissions, we estimate a one percent increase in per capita CO2 emissions yields a 3.57 percent decrease in our inequality as measured by the Gini Coefficient.
+
+
+##Works Cited
+* Grunewald, N., Klasen, S., Martínez-Zarzoso, I., & Muris, C. (2017). The Trade-off Between Income Inequality and Carbon Dioxide Emissions. Ecological Economics, 142, 249–256. doi: 10.1016/j.ecolecon.2017.06.034
+* Ravallion, M., Heil, M., & Jalan, J. (2000). Carbon Emissions and Income Inequality. Oxford Economic Papers, 52(4), 651-669. Retrieved from www.jstor.org/stable/3488662
+* Galasso, V. Nicholas, “The Drivers of Economic Inequality: A Backgrounder for
+Oxfam’s Inequality Campaign,” Oxfam America Research Backgrounder series (2014): www.oxfamamerica.org/publications/the-drivers-of-economic-inequalitythe-primer. 
+* Gujarati, D. N., & Porter, D. C. (2009). Basic econometrics. Boston, Mass: McGraw-Hill.
+```{r bib, include=FALSE}
+# KEEP THIS AT THE END OF THE DOCUMENT TO GENERATE A LOCAL bib FILE FOR PKGS USED
+knitr::write_bib(sub("^package:", "", grep("package", search(), value=TRUE)), file='skeleton.bib')
+```
